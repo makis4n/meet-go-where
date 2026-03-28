@@ -86,17 +86,24 @@ async def _fetch_all_commutes(
     """
     Returns a flat list of travel times matching the order of tasks built as:
       for each candidate × for each friend × for each mode
-    All calls are fired concurrently in a single asyncio.gather.
+    Concurrency is capped at 5 to avoid OneMap rate-limiting routing calls.
     """
+    sem = asyncio.Semaphore(5)
+
+    async def _guarded(client, *args):
+        async with sem:
+            return await onemap.travel_time(*args, client=client)
+
     tasks = []
     async with httpx.AsyncClient() as client:
         for candidate in candidates:
             for friend in geocoded:
                 for mode in MODES:
-                    tasks.append(onemap.travel_time(
+                    tasks.append(_guarded(
+                        client,
                         friend["lat"], friend["lng"],
                         candidate["lat"], candidate["lng"],
-                        mode, token, client,
+                        mode, token,
                     ))
         return list(await asyncio.gather(*tasks))
 

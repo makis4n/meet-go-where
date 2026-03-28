@@ -32,28 +32,35 @@ async def get_token() -> str:
 async def geocode(address: str, client: httpx.AsyncClient) -> dict | None:
     """
     Resolves a free-text Singapore address to lat/lng.
-    Returns None if no results found.
+    Returns None if no results found or on rate-limit/error.
     """
-    resp = await client.get(
-        "https://www.onemap.gov.sg/api/common/elastic/search",
-        params={
-            "searchVal": address,
-            "returnGeom": "Y",
-            "getAddrDetails": "Y",
-            "pageNum": 1,
-        },
-        timeout=10.0,
-    )
-    results = resp.json().get("results", [])
-    if not results:
+    if not address:
         return None
-    hit = results[0]
-    return {
-        "address": address,
-        "resolved_address": hit.get("ADDRESS", address),
-        "lat": float(hit["LATITUDE"]),
-        "lng": float(hit["LONGITUDE"]),
-    }
+    try:
+        resp = await client.get(
+            "https://www.onemap.gov.sg/api/common/elastic/search",
+            params={
+                "searchVal": address,
+                "returnGeom": "Y",
+                "getAddrDetails": "Y",
+                "pageNum": 1,
+            },
+            timeout=10.0,
+        )
+        if resp.status_code != 200:
+            return None
+        results = resp.json().get("results", [])
+        if not results:
+            return None
+        hit = results[0]
+        return {
+            "address": address,
+            "resolved_address": hit.get("ADDRESS", address),
+            "lat": float(hit["LATITUDE"]),
+            "lng": float(hit["LONGITUDE"]),
+        }
+    except Exception:
+        return None
 
 
 async def travel_time(
@@ -63,6 +70,7 @@ async def travel_time(
     end_lng: float,
     mode: str,  # "pt" | "drive" | "walk"
     token: str,
+    *,
     client: httpx.AsyncClient,
 ) -> int | None:
     """
