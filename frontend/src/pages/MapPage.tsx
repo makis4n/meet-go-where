@@ -5,7 +5,7 @@ import { MapView } from "../components/map/MapView";
 import { ListingDrawer } from "../components/map/ListingDrawer";
 import { ListingsPanel } from "../components/map/ListingsPanel";
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 const DEFAULT_FILTERS: Filters = {
   showFood: true,
