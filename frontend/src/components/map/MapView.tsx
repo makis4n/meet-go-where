@@ -1,4 +1,7 @@
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+import "leaflet.markercluster";
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, ZoomControl, useMap } from "react-leaflet";
@@ -63,7 +66,7 @@ function createPinIcon(listing: Listing, isSelected: boolean) {
 
   const foodSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z"/></svg>`;
   const eventSvg = `<svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>`;
-  const cultureSvg = `<svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M12 3l1.45 4.47H18l-3.64 2.64 1.39 4.28L12 11.77l-3.75 2.62 1.39-4.28L5.99 7.47H10.55z"/></svg>`;
+  const cultureSvg = `<svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M20 12c0-1.1.9-2 2-2V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v4c1.1 0 2 .9 2 2s-.9 2-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-4c-1.1 0-2-.9-2-2z"/></svg>`;
 
   const pulseHtml = isSelected
     ? `<span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);width:36px;height:36px;border-radius:50%;background:${colors.ring};animation:mapPinPulse 1.5s ease-out infinite;"></span>`
@@ -87,6 +90,76 @@ function createPinIcon(listing: Listing, isSelected: boolean) {
     iconSize: [size, size],
     iconAnchor: [size / 2, size],
   });
+}
+
+const VARIANT_COLOR: Record<string, string> = {
+  food: "#f97316",
+  event: "#0ea5e9",
+  sgculturepass: "#7c3aed",
+};
+
+const VARIANTS = ["food", "event", "sgculturepass"] as const;
+type Variant = typeof VARIANTS[number];
+
+function makeClusterGroup(variant: Variant): L.MarkerClusterGroup {
+  const color = VARIANT_COLOR[variant];
+  return L.markerClusterGroup({
+    maxClusterRadius: 60,
+    showCoverageOnHover: false,
+    spiderfyOnMaxZoom: true,
+    disableClusteringAtZoom: 15,
+    iconCreateFunction: (c) => {
+      const count = c.getChildCount();
+      const size = count < 10 ? 34 : count < 50 ? 40 : 46;
+      const fontSize = size < 40 ? 12 : 11;
+      return L.divIcon({
+        html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2.5px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,0.18);display:flex;align-items:center;justify-content:center;font-size:${fontSize}px;font-weight:700;color:#fff;font-family:ui-sans-serif,system-ui,sans-serif;text-shadow:0 1px 2px rgba(0,0,0,0.3);">${count}</div>`,
+        className: "",
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+      });
+    },
+  });
+}
+
+function ClusterLayer({
+  listings,
+  selectedId,
+  onPinClick,
+}: {
+  listings: Listing[];
+  selectedId: string | undefined;
+  onPinClick: (listing: Listing) => void;
+}) {
+  const map = useMap();
+  const groupsRef = useRef<Record<Variant, L.MarkerClusterGroup> | null>(null);
+
+  useEffect(() => {
+    const groups = {
+      food: makeClusterGroup("food"),
+      event: makeClusterGroup("event"),
+      sgculturepass: makeClusterGroup("sgculturepass"),
+    };
+    groupsRef.current = groups;
+    VARIANTS.forEach((v) => map.addLayer(groups[v]));
+    return () => { VARIANTS.forEach((v) => map.removeLayer(groups[v])); };
+  }, [map]);
+
+  useEffect(() => {
+    const groups = groupsRef.current;
+    if (!groups) return;
+    VARIANTS.forEach((v) => groups[v].clearLayers());
+    listings.forEach((listing) => {
+      const variant = getPinVariant(listing);
+      const marker = L.marker([listing.lat, listing.lng], {
+        icon: createPinIcon(listing, listing.id === selectedId),
+      });
+      marker.on("click", () => onPinClick(listing));
+      groups[variant].addLayer(marker);
+    });
+  }, [listings, selectedId, onPinClick]);
+
+  return null;
 }
 
 export function MapView({ listings, selectedId, onPinClick, centroid, friends, isMeetupMode }: MapViewProps) {
@@ -120,14 +193,18 @@ export function MapView({ listings, selectedId, onPinClick, centroid, friends, i
           pane="shadowPane"
         />
 
-        {listings.map((listing) => (
-          <Marker
-            key={`${listing.id}-${listing.id === selectedId}`}
-            position={[listing.lat, listing.lng]}
-            icon={createPinIcon(listing, listing.id === selectedId)}
-            eventHandlers={{ click: () => onPinClick(listing) }}
-          />
-        ))}
+        {isMeetupMode ? (
+          listings.map((listing) => (
+            <Marker
+              key={`${listing.id}-${listing.id === selectedId}`}
+              position={[listing.lat, listing.lng]}
+              icon={createPinIcon(listing, listing.id === selectedId)}
+              eventHandlers={{ click: () => onPinClick(listing) }}
+            />
+          ))
+        ) : (
+          <ClusterLayer listings={listings} selectedId={selectedId} onPinClick={onPinClick} />
+        )}
 
         {/* Friend location markers */}
         {friends?.map((f, i) => (
