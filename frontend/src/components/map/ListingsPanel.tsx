@@ -1,4 +1,4 @@
-import { MapPin, Clock, Navigation2 } from "lucide-react";
+import { MapPin, Clock, Navigation2, X } from "lucide-react";
 import type { Listing } from "../../types/listing";
 import { PIN_COLORS, getPinVariant } from "../../lib/mapUtils";
 
@@ -7,6 +7,9 @@ interface ListingsPanelProps {
   selectedId: string | undefined;
   onSelect: (listing: Listing) => void;
   isMeetupMode: boolean;
+  isMobile?: boolean;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 function formatPrice(min: number | null, max: number | null, type: string): string {
@@ -45,18 +48,40 @@ export function ListingsPanel({
   selectedId,
   onSelect,
   isMeetupMode,
+  isMobile = false,
+  mobileOpen = false,
+  onMobileClose,
 }: ListingsPanelProps) {
   return (
     <aside
-      style={{
-        width: 272,
-        flexShrink: 0,
-        background: "#ffffff",
-        borderLeft: "1px solid rgba(0,0,0,0.07)",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
+      style={
+        isMobile
+          ? {
+              position: "fixed",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: "min(85vw, 320px)",
+              background: "#ffffff",
+              borderLeft: "1px solid rgba(0,0,0,0.07)",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              zIndex: 950,
+              transform: mobileOpen ? "translateX(0)" : "translateX(100%)",
+              transition: "transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)",
+              boxShadow: mobileOpen ? "-4px 0 24px rgba(0,0,0,0.12)" : "none",
+            }
+          : {
+              width: 272,
+              flexShrink: 0,
+              background: "#ffffff",
+              borderLeft: "1px solid rgba(0,0,0,0.07)",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }
+      }
     >
       {/* Header */}
       <div style={{ padding: "18px 16px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)", flexShrink: 0 }}>
@@ -75,21 +100,31 @@ export function ListingsPanel({
               {isMeetupMode ? "Meetup Spots" : "Listings"}
             </span>
           </div>
-          {isMeetupMode && (
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 600,
-                padding: "2px 7px",
-                borderRadius: 20,
-                background: "rgba(99,102,241,0.1)",
-                color: "#6366f1",
-                border: "1px solid rgba(99,102,241,0.2)",
-              }}
-            >
-              Sorted by commute
-            </span>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {isMeetupMode && (
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: "2px 7px",
+                  borderRadius: 20,
+                  background: "rgba(99,102,241,0.1)",
+                  color: "#6366f1",
+                  border: "1px solid rgba(99,102,241,0.2)",
+                }}
+              >
+                Sorted by commute
+              </span>
+            )}
+            {isMobile && (
+              <button
+                onClick={onMobileClose}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", display: "flex", padding: 4 }}
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
         </div>
         <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 5 }}>
           {listings.length} {listings.length === 1 ? "place" : "places"}

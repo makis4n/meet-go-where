@@ -1,7 +1,6 @@
 import { useState, useRef, type KeyboardEvent } from "react";
 import { SlidersHorizontal, Plus, X, Users, Loader2 } from "lucide-react";
 import type { Filters, DistanceOption } from "../../types/listing";
-import { PIN_COLORS, type PinVariant } from "../../lib/mapUtils";
 import { FilterSection } from "./FilterSection";
 
 interface FilterSidebarProps {
@@ -17,6 +16,9 @@ interface FilterSidebarProps {
   meetupResultCount: number | null;
   isLoading?: boolean;
   loadError?: string | null;
+  isMobile?: boolean;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 const TYPE_OPTIONS: { key: "showFood" | "showEvents" | "showSGCP"; label: string; color: string }[] = [
@@ -40,6 +42,9 @@ export function FilterSidebar({
   meetupResultCount,
   isLoading = false,
   loadError = null,
+  isMobile = false,
+  mobileOpen = false,
+  onMobileClose,
 }: FilterSidebarProps) {
   const [inputValue, setInputValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -64,23 +69,52 @@ export function FilterSidebar({
 
   return (
     <aside
-      style={{
-        width: 260,
-        flexShrink: 0,
-        background: "#ffffff",
-        borderRight: "1px solid rgba(0,0,0,0.07)",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
+      style={
+        isMobile
+          ? {
+              position: "fixed",
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: "min(85vw, 320px)",
+              background: "#ffffff",
+              borderRight: "1px solid rgba(0,0,0,0.07)",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              zIndex: 950,
+              transform: mobileOpen ? "translateX(0)" : "translateX(-100%)",
+              transition: "transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)",
+              boxShadow: mobileOpen ? "4px 0 24px rgba(0,0,0,0.12)" : "none",
+            }
+          : {
+              width: 260,
+              flexShrink: 0,
+              background: "#ffffff",
+              borderRight: "1px solid rgba(0,0,0,0.07)",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }
+      }
     >
       {/* Header */}
       <div style={{ padding: "18px 20px 16px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <SlidersHorizontal size={14} style={{ color: "#6366f1" }} />
-          <span style={{ fontFamily: "monospace", fontSize: 11, letterSpacing: "0.1em", color: "#6366f1", textTransform: "uppercase" }}>
-            Filters
-          </span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <SlidersHorizontal size={14} style={{ color: "#6366f1" }} />
+            <span style={{ fontFamily: "monospace", fontSize: 11, letterSpacing: "0.1em", color: "#6366f1", textTransform: "uppercase" }}>
+              Filters
+            </span>
+          </div>
+          {isMobile && (
+            <button
+              onClick={onMobileClose}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", display: "flex", padding: 4 }}
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
         <p style={{ fontSize: 12, color: loadError ? "#ef4444" : "#94a3b8", marginTop: 4 }}>
           {loadError
@@ -317,18 +351,6 @@ export function FilterSidebar({
 
       </div>
 
-      {/* Legend */}
-      <div style={{ padding: "14px 20px", borderTop: "1px solid rgba(0,0,0,0.06)", display: "flex", flexDirection: "column", gap: 8 }}>
-        <p style={{ fontFamily: "monospace", fontSize: 10, color: "#cbd5e1", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 2 }}>
-          Legend
-        </p>
-        {([["food", "Food & Drink"], ["event", "Events"], ["sgculturepass", "SG Culture Pass"]] as [PinVariant, string][]).map(([variant, label]) => (
-          <div key={variant} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 10, height: 10, borderRadius: "50%", background: PIN_COLORS[variant].bg, boxShadow: `0 0 0 2px rgba(255,255,255,0.9), 0 0 0 3px ${PIN_COLORS[variant].bg}40` }} />
-            <span style={{ fontSize: 12, color: "#64748b" }}>{label}</span>
-          </div>
-        ))}
-      </div>
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }

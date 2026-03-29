@@ -16,6 +16,7 @@ function formatDateRange(starts_at: string | null | undefined, ends_at: string |
 interface ListingDrawerProps {
   listing: Listing | null;
   onClose: () => void;
+  isMobile?: boolean;
 }
 
 function formatPrice(min: number | null, max: number | null, type: string): string {
@@ -25,7 +26,7 @@ function formatPrice(min: number | null, max: number | null, type: string): stri
   return `$${min} – $${max}`;
 }
 
-export function ListingDrawer({ listing, onClose }: ListingDrawerProps) {
+export function ListingDrawer({ listing, onClose, isMobile = false }: ListingDrawerProps) {
   const [imgFailed, setImgFailed] = useState(false);
 
   // Reset image state whenever a new listing is selected
@@ -47,7 +48,7 @@ export function ListingDrawer({ listing, onClose }: ListingDrawerProps) {
           top: 0,
           right: 0,
           bottom: 0,
-          width: 380,
+          width: isMobile ? "100%" : 380,
           background: "#ffffff",
           borderLeft: "1px solid rgba(0,0,0,0.07)",
           zIndex: 1100,
