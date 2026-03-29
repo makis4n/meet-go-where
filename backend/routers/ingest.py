@@ -57,7 +57,7 @@ async def _run_geocode_retry():
             geo = await onemap.geocode(row["address"], client)
             if geo:
                 supabase.table("listings").update(
-                    {"lat": geo["lat"], "lng": geo["lng"]}
+                    {"lat": geo["lat"], "lng": geo["lng"], "postal_code": geo.get("postal_code")}
                 ).eq("id", row["id"]).execute()
                 updated += 1
             await asyncio.sleep(0.5)
@@ -75,4 +75,25 @@ async def ingest_chope(background_tasks: BackgroundTasks):
 async def ingest_eventbrite(background_tasks: BackgroundTasks):
     background_tasks.add_task(eventbrite.run)
     return {"status": "started", "message": "Scraping Eventbrite in background. Check scrape_runs table for progress."}
+
+
+# ── Synchronous endpoints (block until scrape completes) ──────
+# Use these from scheduled jobs (e.g. GitHub Actions) so the HTTP connection
+# stays open, preventing Render free-tier idle shutdown mid-scrape.
+
+@router.post("/sgculturepass/sync")
+async def ingest_sgculturepass_sync(
+    limit: Optional[int] = Query(None, description="Max number of events to scrape. Omit for full run."),
+):
+    return await sgculturepass.run(limit=limit)
+
+
+@router.post("/chope/sync")
+async def ingest_chope_sync():
+    return await chope.run()
+
+
+@router.post("/eventbrite/sync")
+async def ingest_eventbrite_sync():
+    return await eventbrite.run()
 
