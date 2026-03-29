@@ -1,6 +1,7 @@
 import httpx
 import math
 import os
+import re
 from datetime import datetime, timezone
 
 ONEMAP_EMAIL = os.environ.get("ONEMAP_EMAIL")
@@ -29,38 +30,54 @@ async def get_token() -> str:
     return _token_cache["token"]
 
 
+def extract_postal_code(address: str) -> str | None:
+    """Extracts a 6-digit Singapore postal code from an address string."""
+    match = re.search(r'\b(\d{6})\b', address)
+    return match.group(1) if match else None
+
+
 async def geocode(address: str, client: httpx.AsyncClient) -> dict | None:
     """
-    Resolves a free-text Singapore address to lat/lng.
-    Returns None if no results found or on rate-limit/error.
+    Resolves a Singapore address to lat/lng + postal code.
+    Tries the postal code (if present in the address) first — more reliable on
+    OneMap than free-text — then falls back to the full address string.
+    Returns None if no results found or on error.
     """
     if not address:
         return None
-    try:
-        resp = await client.get(
-            "https://www.onemap.gov.sg/api/common/elastic/search",
-            params={
-                "searchVal": address,
-                "returnGeom": "Y",
-                "getAddrDetails": "Y",
-                "pageNum": 1,
-            },
-            timeout=10.0,
-        )
-        if resp.status_code != 200:
-            return None
-        results = resp.json().get("results", [])
-        if not results:
-            return None
-        hit = results[0]
-        return {
-            "address": address,
-            "resolved_address": hit.get("ADDRESS", address),
-            "lat": float(hit["LATITUDE"]),
-            "lng": float(hit["LONGITUDE"]),
-        }
-    except Exception:
-        return None
+
+    postal_code = extract_postal_code(address)
+    search_terms = [postal_code, address] if postal_code else [address]
+
+    for search_val in search_terms:
+        try:
+            resp = await client.get(
+                "https://www.onemap.gov.sg/api/common/elastic/search",
+                params={
+                    "searchVal": search_val,
+                    "returnGeom": "Y",
+                    "getAddrDetails": "Y",
+                    "pageNum": 1,
+                },
+                timeout=10.0,
+            )
+            if resp.status_code != 200:
+                continue
+            results = resp.json().get("results", [])
+            if not results:
+                continue
+            hit = results[0]
+            return {
+                "address": address,
+                "resolved_address": hit.get("ADDRESS", address),
+                "lat": float(hit["LATITUDE"]),
+                "lng": float(hit["LONGITUDE"]),
+                "postal_code": postal_code or hit.get("POSTAL") or None,
+            }
+        except Exception:
+            continue
+
+    return None
 
 
 async def travel_time(

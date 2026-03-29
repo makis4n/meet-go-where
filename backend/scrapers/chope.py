@@ -100,7 +100,7 @@ async def _scrape_area(area_slug: str, area_label: str) -> list[dict]:
         return []
 
 
-async def _geocode_all(restaurants: list[dict]) -> list[tuple[float | None, float | None]]:
+async def _geocode_all(restaurants: list[dict]) -> list[tuple[float | None, float | None, str | None]]:
     """Geocodes sequentially with delay to respect OneMap rate limits."""
     import httpx
     results = []
@@ -108,14 +108,14 @@ async def _geocode_all(restaurants: list[dict]) -> list[tuple[float | None, floa
         for r in restaurants:
             address = r.get("address") or f"{r.get('neighbourhood', '')}, Singapore"
             geo = await onemap.geocode(address, client)
-            results.append((geo["lat"], geo["lng"]) if geo else (None, None))
+            results.append((geo["lat"], geo["lng"], geo.get("postal_code")) if geo else (None, None, None))
             await asyncio.sleep(0.5)
     return results
 
 
 # ── Normalisation ─────────────────────────────────────────────
 
-def _build_row(restaurant: dict, lat: float | None, lng: float | None) -> dict:
+def _build_row(restaurant: dict, lat: float | None, lng: float | None, postal_code: str | None) -> dict:
     price_min, price_max = _parse_price(restaurant.get("price_range", ""))
     detail_url = restaurant.get("detail_url", "")
     source_id = detail_url.rstrip("/").split("/")[-1] or restaurant["name"].lower().replace(" ", "-")
@@ -130,7 +130,7 @@ def _build_row(restaurant: dict, lat: float | None, lng: float | None) -> dict:
         "description": None,
         "image_url": restaurant.get("image_url") or None,
         "address": restaurant.get("address") or restaurant.get("neighbourhood"),
-        "postal_code": None,
+        "postal_code": postal_code,
         "lat": lat,
         "lng": lng,
         "price_min": price_min,
@@ -158,8 +158,8 @@ async def run() -> dict:
     coords = await _geocode_all(all_restaurants)
 
     rows = [
-        _build_row(r, lat, lng)
-        for r, (lat, lng) in zip(all_restaurants, coords)
+        _build_row(r, lat, lng, postal_code)
+        for r, (lat, lng, postal_code) in zip(all_restaurants, coords)
         if r.get("name")
     ]
 

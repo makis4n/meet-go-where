@@ -99,24 +99,24 @@ async def _scrape_detail(detail_url: str, sem: asyncio.Semaphore) -> dict:
             return {}
 
 
-async def _geocode_all(items: list[dict]) -> list[tuple[float | None, float | None]]:
+async def _geocode_all(items: list[dict]) -> list[tuple[float | None, float | None, str | None]]:
     import httpx
     results = []
     async with httpx.AsyncClient() as client:
         for item in items:
             address = item.get("venue_address") or item.get("venue_name") or ""
             if address.lower() == "online":
-                results.append((None, None))
+                results.append((None, None, None))
                 continue
             geo = await onemap.geocode(address, client)
-            results.append((geo["lat"], geo["lng"]) if geo else (None, None))
+            results.append((geo["lat"], geo["lng"], geo.get("postal_code")) if geo else (None, None, None))
             await asyncio.sleep(0.5)
     return results
 
 
 # ── Normalisation ─────────────────────────────────────────────
 
-def _build_row(card: dict, detail: dict, lat: float | None, lng: float | None) -> dict:
+def _build_row(card: dict, detail: dict, lat: float | None, lng: float | None, postal_code: str | None) -> dict:
     price_min, price_max = _parse_price(card.get("price_text", ""))
     starts_at = _parse_date(card.get("date_text", ""))
     detail_url = card.get("detail_url", "")
@@ -133,7 +133,7 @@ def _build_row(card: dict, detail: dict, lat: float | None, lng: float | None) -
         "description": detail.get("description"),
         "image_url": card.get("image_url") or None,
         "address": detail.get("venue_address") or card.get("venue_name"),
-        "postal_code": None,
+        "postal_code": postal_code,
         "lat": lat,
         "lng": lng,
         "price_min": price_min,
@@ -179,8 +179,8 @@ async def run() -> dict:
     coords = await _geocode_all(merged)
 
     rows = [
-        _build_row(card, detail, lat, lng)
-        for (card, detail), (lat, lng) in zip(zip(all_cards, details), coords)
+        _build_row(card, detail, lat, lng, postal_code)
+        for (card, detail), (lat, lng, postal_code) in zip(zip(all_cards, details), coords)
         if card.get("title")
     ]
     rows = list({r["source_id"]: r for r in rows}.values())
