@@ -2,6 +2,9 @@
 
 A Singapore food & events aggregator with an interactive map and friend meetup finder. Scrapes listings from SG Culture Pass, Chope, and Eventbrite, normalises them into a unified database, and helps groups of friends find a venue that's fair for everyone to travel to.
 
+<img width="1437" height="749" alt="Screenshot 2026-03-29 at 5 03 57 PM" src="https://github.com/user-attachments/assets/82d95660-c0b1-477a-a1d7-4fc7a75178da" />
+<img width="1437" height="749" alt="Screenshot 2026-03-29 at 5 03 22 PM" src="https://github.com/user-attachments/assets/f12fd271-f249-4733-9667-20b3598a6576" />
+
 ## Features
 
 - **Interactive map** — browse food venues and events across Singapore with filters for type, price, and tags; pins cluster by category at lower zoom levels
